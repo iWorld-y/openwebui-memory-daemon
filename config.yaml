@@ -1,0 +1,27 @@
+openwebui:
+  base_url: "http://localhost:3000"
+  api_key: "sk-xxx"           # Bearer token
+
+llm:
+  base_url: "http://localhost:11434/v1"  # Ollama / OpenAI-compatible
+  api_key: ""
+  model: "qwen3:32b"
+  max_tokens: 4096
+  timeout_sec: 60
+
+schedule:
+  daily: "0 0 * * *"       # 每天 00:00
+  weekly: "0 0 * * 0"      # 每周日 00:00
+  monthly: "0 0 1 * *"     # 每月 1 日 00:00
+
+git:
+  repo_path: "./owui-memories-backup"
+  remote: "origin"
+  branch: "main"
+  author_name: "owui-memory-daemon"
+  author_email: "daemon@localhost"
+
+log:
+  level: "info"
+  path: "./logs/daemon.log"
+

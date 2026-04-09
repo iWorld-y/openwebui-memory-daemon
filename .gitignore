@@ -1,0 +1,16 @@
+# build output
+output/
+
+# runtime logs
+logs/
+*.log
+
+# OpenWebUI memories snapshot repo
+owui-memories-backup/
+
+# macOS
+.DS_Store
+
+# Go (optional)
+*.test
+

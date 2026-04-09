@@ -1,0 +1,9 @@
+services:
+  owui-memory-daemon:
+    build: .
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./owui-memories-backup:/app/owui-memories-backup
+      - ./logs:/app/logs
+    command: ["-config", "/app/config.yaml"]
+    restart: always
