@@ -1,4 +1,4 @@
-package memory
+package domain
 
 import (
 	"regexp"
@@ -6,29 +6,6 @@ import (
 	"strings"
 	"time"
 )
-
-type Kind int
-
-const (
-	KindNone Kind = iota
-	KindDaily
-	KindWeekly
-	KindMonthly
-)
-
-func KindFromContent(content string) Kind {
-	s := strings.TrimSpace(content)
-	switch {
-	case strings.HasPrefix(s, "📋 "):
-		return KindDaily
-	case strings.HasPrefix(s, "📦 "):
-		return KindWeekly
-	case strings.HasPrefix(s, "📅 "):
-		return KindMonthly
-	default:
-		return KindNone
-	}
-}
 
 var (
 	reDaily   = regexp.MustCompile(`^📋\s+(\d{4}-\d{2}-\d{2})\b`)
@@ -44,7 +21,7 @@ func ParseDailyDate(content string, loc *time.Location) (time.Time, bool) {
 	if len(m) != 2 {
 		return time.Time{}, false
 	}
-	t, err := time.ParseInLocation("2006-01-02", m[1], loc)
+	t, err := time.ParseInLocation(time.DateOnly, m[1], loc)
 	if err != nil {
 		return time.Time{}, false
 	}
@@ -83,3 +60,19 @@ func ParseMonthlyKey(content string) (year int, month int, ok bool) {
 	return y, mo, true
 }
 
+func ISOWeekStart(loc *time.Location, year int, week int) time.Time {
+	if loc == nil {
+		loc = time.Local
+	}
+	if week < 1 || week > 53 || year < 1 {
+		return time.Time{}
+	}
+	// ISO week 1 is the week with Jan 4th.
+	jan4 := time.Date(year, 1, 4, 0, 0, 0, 0, loc)
+	wd := int(jan4.Weekday())
+	if wd == 0 {
+		wd = 7 // Sunday -> 7
+	}
+	mondayWeek1 := jan4.AddDate(0, 0, -(wd - 1))
+	return mondayWeek1.AddDate(0, 0, (week-1)*7)
+}

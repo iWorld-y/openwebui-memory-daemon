@@ -1,4 +1,4 @@
-package task
+package application
 
 import "unicode/utf8"
 
@@ -50,4 +50,3 @@ func safeUTF8CutReverse(s string, max int) int {
 	}
 	return i
 }
-

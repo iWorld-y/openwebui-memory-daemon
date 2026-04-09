@@ -12,14 +12,15 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/iWorld-y/owui-memory-daemon/internal/config"
-	"github.com/iWorld-y/owui-memory-daemon/internal/git"
-	"github.com/iWorld-y/owui-memory-daemon/internal/llm"
-	"github.com/iWorld-y/owui-memory-daemon/internal/logx"
-	"github.com/iWorld-y/owui-memory-daemon/internal/owui"
-	"github.com/iWorld-y/owui-memory-daemon/internal/retry"
-	"github.com/iWorld-y/owui-memory-daemon/internal/snapshot"
-	"github.com/iWorld-y/owui-memory-daemon/internal/task"
+	memapp "github.com/iWorld-y/owui-memory-daemon/internal/memoryops/application"
+	"github.com/iWorld-y/owui-memory-daemon/internal/snapshotting/application"
+
+	"github.com/iWorld-y/owui-memory-daemon/internal/infrastructure/config"
+	"github.com/iWorld-y/owui-memory-daemon/internal/infrastructure/gitrepo"
+	"github.com/iWorld-y/owui-memory-daemon/internal/infrastructure/llm"
+	"github.com/iWorld-y/owui-memory-daemon/internal/infrastructure/logx"
+	"github.com/iWorld-y/owui-memory-daemon/internal/infrastructure/owui"
+	"github.com/iWorld-y/owui-memory-daemon/internal/infrastructure/retry"
 )
 
 func main() {
@@ -61,8 +62,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	repo := &git.Repo{
-		Path:        cfg.Git.RepoPath,
+	repo := &gitrepo.Repo{
+		RepoPath:    cfg.Git.RepoPath,
 		Remote:      cfg.Git.Remote,
 		Branch:      cfg.Git.Branch,
 		AuthorName:  cfg.Git.AuthorName,
@@ -73,21 +74,33 @@ func main() {
 		MaxAttempts: 3,
 		Delays:      []time.Duration{10 * time.Second, 30 * time.Second},
 	}
+	retryAdapter := retry.Adapter{Policy: policy}
 
-	daily := &task.DailySummarizer{OWUI: owuiClient, LLM: llmClient, Policy: policy, Logger: logger, Loc: loc}
-	weekly := &task.WeeklyCompressor{OWUI: owuiClient, LLM: llmClient, Policy: policy, Logger: logger, Loc: loc}
-	monthly := &task.MonthlyCompressor{OWUI: owuiClient, LLM: llmClient, Policy: policy, Logger: logger, Loc: loc}
+	snapshotter := &application.Snapshotter{Memories: owuiClient, Repo: repo}
 
-	runAndSnapshot := func(ctx context.Context, name string, fn func(context.Context) error) {
-		if err := fn(ctx); err != nil {
-			slog.Error("task failed", "task", name, "err", err)
-			return
-		}
-		if err := snapshot.SnapshotAndPush(ctx, owuiClient, repo, time.Now().In(loc)); err != nil {
-			slog.Warn("snapshot push failed", "task", name, "err", err)
-		} else {
-			slog.Info("snapshot pushed", "task", name)
-		}
+	daily := &memapp.DailySummarizer{
+		OWUI:     owuiClient,
+		LLM:      llmClient,
+		Retry:    retryAdapter,
+		Logger:   memapp.SlogLogger{L: logger},
+		Loc:      loc,
+		Snapshot: snapshotter,
+	}
+	weekly := &memapp.WeeklyCompressor{
+		OWUI:     owuiClient,
+		LLM:      llmClient,
+		Retry:    retryAdapter,
+		Logger:   memapp.SlogLogger{L: logger},
+		Loc:      loc,
+		Snapshot: snapshotter,
+	}
+	monthly := &memapp.MonthlyCompressor{
+		OWUI:     owuiClient,
+		LLM:      llmClient,
+		Retry:    retryAdapter,
+		Logger:   memapp.SlogLogger{L: logger},
+		Loc:      loc,
+		Snapshot: snapshotter,
 	}
 
 	if runOnce != "" {
@@ -95,11 +108,17 @@ func main() {
 		switch strings.ToLower(strings.TrimSpace(runOnce)) {
 		case "daily":
 			day := time.Now().In(loc).AddDate(0, 0, -1)
-			runAndSnapshot(ctx, "daily", func(ctx context.Context) error { return daily.Run(ctx, day) })
+			if err := daily.Run(ctx, day); err != nil {
+				slog.Error("task failed", "task", "daily", "err", err)
+			}
 		case "weekly":
-			runAndSnapshot(ctx, "weekly", func(ctx context.Context) error { return weekly.Run(ctx, time.Now().In(loc)) })
+			if err := weekly.Run(ctx, time.Now().In(loc)); err != nil {
+				slog.Error("task failed", "task", "weekly", "err", err)
+			}
 		case "monthly":
-			runAndSnapshot(ctx, "monthly", func(ctx context.Context) error { return monthly.Run(ctx, time.Now().In(loc)) })
+			if err := monthly.Run(ctx, time.Now().In(loc)); err != nil {
+				slog.Error("task failed", "task", "monthly", "err", err)
+			}
 		default:
 			slog.Error("unknown run value", "run", runOnce)
 			os.Exit(2)
@@ -114,25 +133,25 @@ func main() {
 	c := cron.New(cron.WithParser(parser))
 
 	if _, err := c.AddFunc(cfg.Schedule.Daily, func() {
-		runAndSnapshot(context.Background(), "daily", func(ctx context.Context) error {
-			return daily.Run(ctx, time.Now().In(loc).AddDate(0, 0, -1))
-		})
+		if err := daily.Run(context.Background(), time.Now().In(loc).AddDate(0, 0, -1)); err != nil {
+			slog.Error("task failed", "task", "daily", "err", err)
+		}
 	}); err != nil {
 		slog.Error("add daily cron failed", "err", err)
 		os.Exit(1)
 	}
 	if _, err := c.AddFunc(cfg.Schedule.Weekly, func() {
-		runAndSnapshot(context.Background(), "weekly", func(ctx context.Context) error {
-			return weekly.Run(ctx, time.Now().In(loc))
-		})
+		if err := weekly.Run(context.Background(), time.Now().In(loc)); err != nil {
+			slog.Error("task failed", "task", "weekly", "err", err)
+		}
 	}); err != nil {
 		slog.Error("add weekly cron failed", "err", err)
 		os.Exit(1)
 	}
 	if _, err := c.AddFunc(cfg.Schedule.Monthly, func() {
-		runAndSnapshot(context.Background(), "monthly", func(ctx context.Context) error {
-			return monthly.Run(ctx, time.Now().In(loc))
-		})
+		if err := monthly.Run(context.Background(), time.Now().In(loc)); err != nil {
+			slog.Error("task failed", "task", "monthly", "err", err)
+		}
 	}); err != nil {
 		slog.Error("add monthly cron failed", "err", err)
 		os.Exit(1)
@@ -145,4 +164,3 @@ func main() {
 	<-ctx.Done()
 	slog.Info("daemon stopped", "at", time.Now().Format(time.RFC3339))
 }
-

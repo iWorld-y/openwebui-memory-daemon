@@ -11,6 +11,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	memapp "github.com/iWorld-y/owui-memory-daemon/internal/memoryops/application"
 )
 
 type chatCompletionResponse struct {
@@ -52,9 +54,9 @@ func NewClient(baseURL string, apiKey string, model string, maxTokens int, timeo
 		maxTokens = 4096
 	}
 	return &Client{
-		baseURL: u,
-		apiKey:  apiKey,
-		model:   model,
+		baseURL:   u,
+		apiKey:    apiKey,
+		model:     model,
 		maxTokens: maxTokens,
 		httpClient: &http.Client{
 			Timeout: timeout,
@@ -109,3 +111,4 @@ func (c *Client) Summarize(ctx context.Context, prompt string) (string, error) {
 	return out, nil
 }
 
+var _ memapp.LLMPort = (*Client)(nil)

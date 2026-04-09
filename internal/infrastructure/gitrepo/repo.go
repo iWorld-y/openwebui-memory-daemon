@@ -1,4 +1,4 @@
-package git
+package gitrepo
 
 import (
 	"context"
@@ -8,30 +8,34 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	snapapp "github.com/iWorld-y/owui-memory-daemon/internal/snapshotting/application"
 )
 
 type Repo struct {
-	Path        string
+	RepoPath    string
 	Remote      string
 	Branch      string
 	AuthorName  string
 	AuthorEmail string
 }
 
+func (r *Repo) Path() string { return r.RepoPath }
+
 func (r *Repo) Ensure(ctx context.Context) error {
-	if strings.TrimSpace(r.Path) == "" {
+	if strings.TrimSpace(r.RepoPath) == "" {
 		return fmt.Errorf("git repo path is empty")
 	}
-	if err := os.MkdirAll(r.Path, 0o755); err != nil {
+	if err := os.MkdirAll(r.RepoPath, 0o755); err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(r.Path, ".git")); err == nil {
+	if _, err := os.Stat(filepath.Join(r.RepoPath, ".git")); err == nil {
 		return nil
 	}
 	if err := r.run(ctx, "git", "init"); err != nil {
 		return err
 	}
-	readme := filepath.Join(r.Path, "README.md")
+	readme := filepath.Join(r.RepoPath, "README.md")
 	if _, err := os.Stat(readme); err != nil {
 		_ = os.WriteFile(readme, []byte("# owui memories backup\n\nThis repo is managed by owui-memory-daemon.\n"), 0o644)
 	}
@@ -65,7 +69,7 @@ func (r *Repo) SnapshotMessage(now time.Time) string {
 
 func (r *Repo) run(ctx context.Context, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = r.Path
+	cmd.Dir = r.RepoPath
 	cmd.Env = append(os.Environ(),
 		"GIT_AUTHOR_NAME="+r.AuthorName,
 		"GIT_AUTHOR_EMAIL="+r.AuthorEmail,
@@ -79,3 +83,4 @@ func (r *Repo) run(ctx context.Context, name string, args ...string) error {
 	return nil
 }
 
+var _ snapapp.RepoPort = (*Repo)(nil)

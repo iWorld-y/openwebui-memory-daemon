@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	memapp "github.com/iWorld-y/owui-memory-daemon/internal/memoryops/application"
 )
 
 type Policy struct {
@@ -57,3 +59,11 @@ func Do(ctx context.Context, p Policy, fn func(context.Context) error) error {
 	return lastErr
 }
 
+// Adapter implements memoryops/application.RetryPort.
+type Adapter struct{ Policy Policy }
+
+func (a Adapter) Do(ctx context.Context, fn func(context.Context) error) error {
+	return Do(ctx, a.Policy, fn)
+}
+
+var _ memapp.RetryPort = Adapter{}

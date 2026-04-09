@@ -47,4 +47,3 @@ func TestDoStopsOnContextCancel(t *testing.T) {
 		t.Fatalf("attempts=%d want 0", attempts)
 	}
 }
-

@@ -36,4 +36,3 @@ func New(level string, path string) (*slog.Logger, func() error, error) {
 	h := slog.NewJSONHandler(w, &slog.HandlerOptions{Level: lvl})
 	return slog.New(h), closeFn, nil
 }
-

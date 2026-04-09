@@ -11,6 +11,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	memapp "github.com/iWorld-y/owui-memory-daemon/internal/memoryops/application"
 )
 
 type Client struct {
@@ -36,12 +38,12 @@ func NewClient(baseURL string, apiKey string, timeout time.Duration) (*Client, e
 	}, nil
 }
 
-type ChatListItem struct {
+type chatListItemDTO struct {
 	ID        string    `json:"id"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type Chat struct {
+type chatDTO struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
 	Messages []struct {
@@ -51,34 +53,51 @@ type Chat struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type Memory struct {
+type memoryDTO struct {
 	ID      string `json:"id"`
 	Content string `json:"content"`
 }
 
-func (c *Client) ListChats(ctx context.Context) ([]ChatListItem, error) {
-	var out []ChatListItem
+func (c *Client) ListChats(ctx context.Context) ([]memapp.ChatListItem, error) {
+	var out []chatListItemDTO
 	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/chats/list", nil, &out); err != nil {
 		return nil, err
 	}
-	return out, nil
+	res := make([]memapp.ChatListItem, 0, len(out))
+	for _, it := range out {
+		res = append(res, memapp.ChatListItem{ID: it.ID, UpdatedAt: it.UpdatedAt})
+	}
+	return res, nil
 }
 
-func (c *Client) GetChat(ctx context.Context, id string) (*Chat, error) {
-	var out Chat
+func (c *Client) GetChat(ctx context.Context, id string) (*memapp.Chat, error) {
+	var out chatDTO
 	p := "/api/v1/chats/" + url.PathEscape(id)
 	if err := c.doJSON(ctx, http.MethodGet, p, nil, &out); err != nil {
 		return nil, err
 	}
-	return &out, nil
+	msgs := make([]memapp.ChatMessage, 0, len(out.Messages))
+	for _, m := range out.Messages {
+		msgs = append(msgs, memapp.ChatMessage{Role: m.Role, Content: m.Content})
+	}
+	return &memapp.Chat{
+		ID:        out.ID,
+		Title:     out.Title,
+		Messages:  msgs,
+		UpdatedAt: out.UpdatedAt,
+	}, nil
 }
 
-func (c *Client) ListMemories(ctx context.Context) ([]Memory, error) {
-	var out []Memory
+func (c *Client) ListMemories(ctx context.Context) ([]memapp.Memory, error) {
+	var out []memoryDTO
 	if err := c.doJSON(ctx, http.MethodGet, "/api/v1/memories/", nil, &out); err != nil {
 		return nil, err
 	}
-	return out, nil
+	res := make([]memapp.Memory, 0, len(out))
+	for _, m := range out {
+		res = append(res, memapp.Memory{ID: m.ID, Content: m.Content})
+	}
+	return res, nil
 }
 
 func (c *Client) AddMemory(ctx context.Context, content string) error {
@@ -138,3 +157,4 @@ func (c *Client) doJSON(ctx context.Context, method string, pth string, in any, 
 	return nil
 }
 
+var _ memapp.OWUIPort = (*Client)(nil)
