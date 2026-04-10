@@ -14,6 +14,7 @@ make clean          # rm -rf output/
 
 # 单次运行（需要 config.yaml）
 go run ./cmd/daemon -config ./config.yaml -run daily
+go run ./cmd/daemon -config ./config.yaml -run daily -day 2026-04-09
 go run ./cmd/daemon -config ./config.yaml -run weekly
 go run ./cmd/daemon -config ./config.yaml -run monthly
 
@@ -51,6 +52,7 @@ internal/
 ## 核心约定
 
 - **记忆前缀约定**：守护进程仅处理带有前缀 `📋 `（每日）、`📦 `（每周）、`📅 `（每月）的记忆。用户创建的无前缀记忆永远不会被修改或删除。
+- **定向日总结**：支持 `-run daily -day YYYY-MM-DD` 定向整理某一天的对话；`-day` 仅能与 `-run daily` 一起使用。
 - **压缩层级**：每日 → 每周（删除每日记忆）→ 每月（删除每周记忆）。每次写入后都会调用快照。
 - **LLM 提示词**：必须使用绝对时间表达式；提示词设计中禁止使用相对时间（如“昨天/最近/上周”）。
 - **端口/适配器模式**：业务逻辑依赖 `application/ports.go` 中定义的接口；基础设施适配器实现这些接口。通过 `var _ Port = (*Adapter)(nil)` 进行编译时检查。

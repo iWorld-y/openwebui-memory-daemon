@@ -26,9 +26,16 @@ import (
 func main() {
 	var cfgPath string
 	var runOnce string
+	var runDay string
 	flag.StringVar(&cfgPath, "config", "./config.yaml", "config yaml path")
 	flag.StringVar(&runOnce, "run", "", "run once: daily|weekly|monthly")
+	flag.StringVar(&runDay, "day", "", "target day for -run daily, format YYYY-MM-DD")
 	flag.Parse()
+
+	if err := validateRunOnceArgs(runOnce, runDay); err != nil {
+		slog.Error("invalid run arguments", "run", runOnce, "day", runDay, "err", err)
+		os.Exit(2)
+	}
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
@@ -107,7 +114,11 @@ func main() {
 		ctx := context.Background()
 		switch strings.ToLower(strings.TrimSpace(runOnce)) {
 		case "daily":
-			day := time.Now().In(loc).AddDate(0, 0, 0)
+			day, err := resolveDailyRunDay(runDay, time.Now(), loc)
+			if err != nil {
+				slog.Error("invalid day value", "day", runDay, "err", err)
+				os.Exit(2)
+			}
 			if err := daily.Run(ctx, day); err != nil {
 				slog.Error("task failed", "task", "daily", "err", err)
 			}
