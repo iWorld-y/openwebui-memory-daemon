@@ -47,11 +47,12 @@ func (u *WeeklyCompressor) Run(ctx context.Context, ref time.Time) error {
 	}
 	var ds []picked
 	for _, m := range mems {
-		if memory.KindFromContent(m.Content) != memory.KindDaily {
+		switch memory.KindFromContent(m.Content) {
+		case memory.KindWeekly, memory.KindMonthly:
 			continue
 		}
-		d, ok := memory.ParseDailyDate(m.Content, loc)
-		if !ok {
+		d := memoryTime(m, loc)
+		if d.IsZero() {
 			continue
 		}
 		y, w := d.ISOWeek()
@@ -130,4 +131,15 @@ func (u *WeeklyCompressor) do(ctx context.Context, fn func(context.Context) erro
 		return fn(ctx)
 	}
 	return u.Retry.Do(ctx, fn)
+}
+
+func memoryTime(m Memory, loc *time.Location) time.Time {
+	switch {
+	case !m.UpdatedAt.IsZero():
+		return m.UpdatedAt.In(loc)
+	case !m.CreatedAt.IsZero():
+		return m.CreatedAt.In(loc)
+	default:
+		return time.Time{}
+	}
 }

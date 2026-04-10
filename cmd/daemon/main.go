@@ -46,7 +46,7 @@ func main() {
 
 	loc := time.Local
 
-	owuiClient, err := owui.NewClient(cfg.OpenWebUI.BaseURL, cfg.OpenWebUI.APIKey, 30*time.Second)
+	owuiClient, err := owui.NewClient(cfg.OpenWebUI.BaseURL, cfg.OpenWebUI.APIKey, 30*time.Second, logger)
 	if err != nil {
 		slog.Error("init openwebui client failed", "err", err)
 		os.Exit(1)

@@ -57,6 +57,9 @@ func (u *DailySummarizer) Run(ctx context.Context, day time.Time) error {
 			return err
 		}
 
+		log.Info("chat.ID: %s", chat.ID)
+		log.Info("chat.Title: %s", chat.Title)
+
 		b.WriteString("\n---\n")
 		b.WriteString("对话ID: ")
 		b.WriteString(chat.ID)

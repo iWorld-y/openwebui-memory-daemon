@@ -65,6 +65,8 @@ type ChatMessage struct {
 }
 
 type Memory struct {
-	ID      string
-	Content string
+	ID        string
+	Content   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

@@ -46,14 +46,10 @@ func (u *MonthlyCompressor) Run(ctx context.Context, ref time.Time) error {
 	}
 	var ws []picked
 	for _, m := range mems {
-		if memory.KindFromContent(m.Content) != memory.KindWeekly {
+		if memory.KindFromContent(m.Content) == memory.KindMonthly {
 			continue
 		}
-		y, w, ok := memory.ParseWeeklyKey(m.Content)
-		if !ok {
-			continue
-		}
-		start := memory.ISOWeekStart(loc, y, w)
+		start := memoryTime(m, loc)
 		if start.IsZero() {
 			continue
 		}
