@@ -107,7 +107,7 @@ func main() {
 		ctx := context.Background()
 		switch strings.ToLower(strings.TrimSpace(runOnce)) {
 		case "daily":
-			day := time.Now().In(loc).AddDate(0, 0, -1)
+			day := time.Now().In(loc).AddDate(0, 0, 0)
 			if err := daily.Run(ctx, day); err != nil {
 				slog.Error("task failed", "task", "daily", "err", err)
 			}
